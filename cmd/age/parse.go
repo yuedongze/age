@@ -36,6 +36,8 @@ func parseRecipient(arg string) (age.Recipient, error) {
 		return age.ParseX25519Recipient(arg)
 	case strings.HasPrefix(arg, "ssh-"):
 		return agessh.ParseRecipient(arg)
+	case strings.HasPrefix(arg, "sike-"):
+		return age.NewSikeRecipient(arg[5:])
 	case strings.HasPrefix(arg, "github:"):
 		name := strings.TrimPrefix(arg, "github:")
 		return nil, gitHubRecipientError{name}
@@ -184,6 +186,19 @@ func parseIdentitiesFile(name string) ([]age.Identity, error) {
 			return nil, fmt.Errorf("failed to read %q: file too long", name)
 		}
 		return parseSSHIdentity(name, contents)
+
+	case strings.HasPrefix(peeked, "SIKE-SECRET-"):
+		b.Discard(len("SIKE-SECRET-KEY-"))
+
+		keyBuf := make([]byte, 1024)
+		n, _ := b.Read(keyBuf)
+		key := keyBuf[:n]
+
+		ids, _ := age.NewSikeIdentity(string(key))
+
+		return []age.Identity{
+			ids,
+		}, nil
 
 	// An unencrypted age identity file.
 	default:
